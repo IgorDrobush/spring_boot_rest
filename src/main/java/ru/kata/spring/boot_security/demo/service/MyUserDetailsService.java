@@ -18,17 +18,6 @@ public class MyUserDetailsService implements UserDetailsService {
         this.userDao = userDao;
     }
 
-//    @Override
-//    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-//        ru.kata.spring.boot_security.demo.model.User user = userDao.findUserByUsername(username);
-//        String[] authorities = user.getRoles().stream().map(Role::getAuthority).toArray(String[]::new);
-//        return User.builder()
-//                .username(user.getUsername())
-//                .password(user.getPassword())
-//                .roles(authorities)
-//                .build();
-//    }
-
     @Override
     @Transactional
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {

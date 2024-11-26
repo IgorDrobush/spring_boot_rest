@@ -55,6 +55,8 @@ public class UserServiceImpl implements UserService{
     @Override
     @Transactional
     public void updateUser(User user) {
+        String encodedPassword = passwordEncoder.encode(user.getPassword());
+        user.setPassword(encodedPassword);
         User userToUpdate = userDao.findUserById(user.getId());
         Set<Role> rolesToSave = getRolesToSave(user);
         user.setRoles(rolesToSave);

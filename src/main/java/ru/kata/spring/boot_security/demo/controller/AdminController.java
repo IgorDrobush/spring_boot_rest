@@ -2,13 +2,11 @@ package ru.kata.spring.boot_security.demo.controller;
 
 import javax.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
 import org.springframework.validation.BindingResult;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.ModelAttribute;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 import ru.kata.spring.boot_security.demo.model.Role;
 import ru.kata.spring.boot_security.demo.model.User;
 import ru.kata.spring.boot_security.demo.service.RoleService;
@@ -16,13 +14,17 @@ import ru.kata.spring.boot_security.demo.service.UserService;
 
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Controller
+@RequestMapping(value = "/admin")
 public class AdminController {
 
     private final UserService userService;
     private final RoleService roleService;
     private Set<Role> roles;
+    private List<String> rolesToString;
+    private List<User> users;
 
     @Autowired
     public AdminController(UserService userService, RoleService roleService) {
@@ -30,29 +32,48 @@ public class AdminController {
         this.roleService = roleService;
     }
 
-    @GetMapping(value = "/admin/all_users")
-    public String getAllUsers(ModelMap model) {
-        List<User> users = userService.getAllUsers();
+    @GetMapping(value = "/all_users")
+    public String getAllUsers(
+            @AuthenticationPrincipal User user,
+            ModelMap model
+    ) {
+        users = userService.getAllUsers();
+        roles = roleService.getAllRoles();
+        Set<Role> userRoles = user.getRoles();
+        rolesToString = userRoles.stream()
+                .map(Role::getAuthority)
+                .collect(Collectors.toList());
         model.addAttribute("users", users);
+        model.addAttribute("user", user);
+        model.addAttribute("roles", roles);
+        model.addAttribute("rolesToString", rolesToString);
+        model.addAttribute("showEditModal", false);
         return "all_users";
     }
 
-    @GetMapping(value = "/admin/save_user_form")
-    public String saveUserForm(ModelMap model) {
-        roles = roleService.getAllRoles();
-        model.addAttribute("user", new User());
+    @GetMapping(value = "/save_user_form")
+    public String saveUserForm(
+            @AuthenticationPrincipal User user,
+            ModelMap model
+    ) {
+        model.addAttribute("new_user", new User());
         model.addAttribute("roles", roles);
+        model.addAttribute("user", user);
+        model.addAttribute("rolesToString", rolesToString);
         return "save_user_form";
     }
 
-    @PostMapping(value = "/admin/save")
+    @PostMapping(value = "/save")
     public String saveUser(
-            @Valid @ModelAttribute("user") User user,
+            @Valid @ModelAttribute("new_user") User user,
             BindingResult bindingResult,
             ModelMap model
     ) {
         if (bindingResult.hasErrors()) {
+            roles = roleService.getAllRoles();
             model.addAttribute("roles", roles);
+            model.addAttribute("user", user);
+            model.addAttribute("rolesToString", rolesToString);
             return "save_user_form";
         }
 
@@ -64,6 +85,9 @@ public class AdminController {
                     "username.exists",
                     "Пользователь с таким именем уже существует"
             );
+            roles = roleService.getAllRoles();
+            model.addAttribute("user", user);
+            model.addAttribute("rolesToString", rolesToString);
             model.addAttribute("roles", roles);
             return "save_user_form";
         }
@@ -71,33 +95,25 @@ public class AdminController {
         return "redirect:/admin/all_users";
     }
 
-    @GetMapping(value = "/admin/delete")
+    @GetMapping(value = "/delete")
     public String deleteUser(@RequestParam(value = "id", required = false) Long id) {
         userService.deleteUserById(id);
         return "redirect:/admin/all_users";
     }
 
-    @GetMapping(value = "/admin/update_user_form")
-    public String updateUserForm(
-            @RequestParam(value = "id", required = false) Long id,
-            ModelMap model
-    ) {
-        User user = userService.findUserById(id);
-        roles = roleService.getAllRoles();
-        model.addAttribute("user", user);
-        model.addAttribute("roles", roles);
-        return "update_user_form";
-    }
-
-    @PostMapping(value = "/admin/update")
+    @PostMapping(value = "/update")
     public String updateUser(
             @Valid @ModelAttribute("user") User user,
             BindingResult bindingResult,
             ModelMap model
     ) {
         if (bindingResult.hasErrors()) {
+            model.addAttribute("users", users);
+            model.addAttribute("user", user);
             model.addAttribute("roles", roles);
-            return "update_user_form";
+            model.addAttribute("rolesToString", rolesToString);
+            model.addAttribute("showEditModal", true);
+            return "all_users";
         }
 
         userService.updateUser(user);
