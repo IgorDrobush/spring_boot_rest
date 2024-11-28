@@ -40,7 +40,7 @@ public class AdminRestController {
     @PostMapping(value = "/update")
     public ResponseEntity<List<User>> updateUser(@RequestBody User user) {
         userService.updateUser(user);
-        users = userService.getAllUsers();;
+        users = userService.getAllUsers();
         return ResponseEntity.ok(users);
     }
 }
