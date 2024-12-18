@@ -35,30 +35,140 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container-fluid">
             <span class="navbar-text text-white">
-                <span th:text="${user.getUsername()}"></span> with roles:
-                <span th:text="${user.getAuthorities()}"></span>
+                <span id="username">
+                    <span th:if="${user != null}" th:text="${user.getUsername()}"></span>
+                    <span th:if="${user == null}">Guest</span>
+                </span> with roles:
+                <span id="roles">
+                    <span th:if="${user != null}" th:text="${user.getAuthorities()}">Guest</span>
+                    <span th:if="${user == null}">No roles</span>
+                </span>
             </span>
-            <form th:action="@{/logout}" method="post">
+            <form id="logoutForm" th:attr="style= ${user != null} ? '' : 'display: none;'" th:action="@{/logout}" method="post">
                 <button type="submit" class="btn btn-outline-light">Logout</button>
             </form>
         </div>
     </nav>
 
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+
+            // Отправка запроса к /admin/rest/get_all_data
+            fetch('/admin/rest/get_all_data', {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Пришли данные:', data);
+                    // Проверяем, что данные получены
+                    if (data && data.user.username && data.user.roles
+                        && data.rolesToString && data.users && data.roles) {
+                        // Обновляем имя пользователя
+                        document.getElementById('username').textContent = data.user.username;
+                        document.getElementById('roles').textContent = data.user.roles.map(role => role.authority).join(', ');
+                        document.getElementById('user_id').textContent = data.user.id;
+                        document.getElementById('user_username').textContent = data.user.username;
+                        document.getElementById('user_roles').textContent = data.user.roles.map(role => role.authority).join(', ');
+                        // Показываем форму выхода
+                        document.getElementById('logoutForm').style.display = 'block';
+                        updateUsersTable(data.users)
+                        renderRoles(data.roles)
+
+                        const rolesToString = data.rolesToString;  // Обновление списка ролей
+                        const adminLink = document.getElementById('admin-link');
+                        if (rolesToString.includes('ROLE_ADMIN')) {
+                            adminLink.textContent = 'Admin';
+                            adminLink.classList.add('active'); // Добавляем класс active
+                            adminLink.setAttribute('onclick', "showContent('admin')");
+                            showContent('admin');
+                        } else {
+                            adminLink.textContent = ''; // Очищаем текст
+                            adminLink.classList.remove('active'); // Убираем класс active
+                            adminLink.removeAttribute('onclick'); // Убираем событие
+                        }
+
+                        const userLink = document.getElementById('user-link');
+                        if (rolesToString.includes('ROLE_USER')) {
+                            userLink.textContent = 'User';
+                            userLink.setAttribute('onclick', "showContent('user')");
+                            if (!rolesToString.includes('ROLE_ADMIN')) {
+                                userLink.classList.add('active');
+                                showContent('user');
+                            }
+                        } else {
+                            userLink.textContent = '';
+                            userLink.classList.remove('active');
+                            userLink.removeAttribute('onclick');
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching user data:', error);
+                });
+        });
+    </script>
+
     <div class="row">
         <div class="col-md-2 bg-light vh-100">
             <ul class="nav flex-column mt-3">
-                <li class="nav-item" th:if="${rolesToString != null and rolesToString.contains('ROLE_ADMIN')}">
-                    <a id="admin-link" class="nav-link" href="#"
-                       th:classappend="${#httpServletRequest.requestURI.contains('/admin') ? 'active' : ''}"
-                       onclick="showContent('admin')">Admin</a>
+                <li class="nav-item">
+                    <a id="admin-link" class="nav-link" href="#">
+                        <span th:if="${rolesToString != null and rolesToString.contains('ROLE_ADMIN')}" th:classappend="${rolesToString.contains('ROLE_ADMIN') ? 'active' : ''}"></span>
+                        <span th:if="${rolesToString != null and rolesToString.contains('ROLE_ADMIN')}" th:onclick="showContent('admin')">Admin</span>
+<!--                        <span th:if="${rolesToString == null or !rolesToString.contains('ROLE_ADMIN')}"></span>-->
+                    </a>
                 </li>
-                <li class="nav-item" th:if="${rolesToString != null and rolesToString.contains('ROLE_USER')}">
-                    <a id="user-link" class="nav-link" href="#"
-                       th:classappend="${#httpServletRequest.requestURI.contains('/user') ? 'active' : ''}"
-                       onclick="showContent('user')">User</a>
+                <li class="nav-item">
+                    <a id="user-link" class="nav-link" href="#">
+                        <span th:if="${rolesToString != null and rolesToString.contains('ROLE_USER')}" th:classappend="${rolesToString.contains('ROLE_USER') and !rolesToString.contains('ROLE_ADMIN') ? 'active' : ''}"></span>
+                        <span th:if="${rolesToString != null and rolesToString.contains('ROLE_USER')}" th:onclick="showContent('user')">User</span>
+<!--                        <span th:if="${rolesToString == null}"></span>-->
+                    </a>
                 </li>
             </ul>
         </div>
+
+        <script>
+            function showContent(contentId) {
+                console.log('Запустилась функция showContent(contentId)');
+                // Скрыть все содержимое
+                document.querySelectorAll('.content').forEach(function (element) {
+                    element.style.display = 'none';
+                });
+
+                // Отобразить только нужное содержимое
+                let contentElement = document.getElementById(contentId + '-content');
+                console.log('contentElement:', contentElement);
+                if (contentElement) {
+                    contentElement.style.display = 'block';
+                } else {
+                    console.error(`Element with ID ${contentId}-content does not exist.`);
+                }
+
+                // Удалить активный класс для всех ссылок
+                document.querySelectorAll('.nav-link').forEach(function (link) {
+                    link.classList.remove('active');
+                });
+
+                // Добавить активный класс только для выбранной вкладки
+                let activeLink = document.getElementById(contentId + '-link');
+                if (activeLink) {
+                    activeLink.classList.add('active');
+                } else {
+                    console.error(`Element with ID ${contentId}-link does not exist.`);
+                }
+            }
+        </script>
+
         <div class="col-md-10">
             <div id="admin-content" class="content">
                 <div class="container mt-4">
@@ -87,7 +197,7 @@
                                     </tr>
                                     </thead>
                                     <tbody>
-                                    <tr th:each="user : ${users}">
+                                    <tr th:if="${users != null}" th:each="user : ${users}">
                                         <td th:text="${user.id}"></td>
                                         <td th:text="${user.username}"></td>
                                         <td th:text="${user.roles}"></td>
@@ -131,22 +241,39 @@
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Roles</label>
-                                            <div th:each="role : ${roles}">
-                                                <div class="form-check">
-                                                    <!-- Значение чекбокса должно быть authority из объекта role -->
-                                                    <input class="form-check-input" type="checkbox"
-                                                           th:id="'newRole_' + ${role.id}"
-                                                           th:value="${role.authority}" />
-                                                    <label class="form-check-label"
-                                                           th:for="'newRole_' + ${role.id}"
-                                                           th:text="${role.authority}"></label>
-                                                </div>
-                                            </div>
+                                            <div id="roles-container"></div>
+<!--                                            <div th:each="role : ${roles}">-->
+<!--                                                <div class="form-check">-->
+<!--                                                    &lt;!&ndash; Значение чекбокса должно быть authority из объекта role &ndash;&gt;-->
+<!--                                                    <input class="form-check-input" type="checkbox"-->
+<!--                                                           th:id="'newRole_' + ${role.id}"-->
+<!--                                                           th:value="${role.authority}" />-->
+<!--                                                    <label class="form-check-label"-->
+<!--                                                           th:for="'newRole_' + ${role.id}"-->
+<!--                                                           th:text="${role.authority}"></label>-->
+<!--                                                </div>-->
+<!--                                            </div>-->
 <!--                                            <div id="rolesError" style="color: red;"></div>-->
                                         </div>
                                         <div class="button-add">
                                             <button type="button" class="btn btn-success" onclick="saveUser(event)">Add new user</button>
                                         </div>
+
+                                        <script>
+                                            function renderRoles(roles) {
+                                                const container = document.getElementById('roles-container');
+                                                container.innerHTML = ''; // Очистить контейнер перед добавлением новых элементов
+                                                roles.forEach(role => {
+                                                    const div = document.createElement('div');
+                                                    div.className = 'form-check';
+                                                    div.innerHTML = `
+                    <input class="form-check-input" type="checkbox" id="newRole_${role.id}" value="${role.authority}">
+                    <label class="form-check-label" for="newRole_${role.id}">${role.authority}</label>
+                `;
+                                                    container.appendChild(div);
+                                                });
+                                            }
+                                        </script>
                                     </form>
                                 </div>
                             </div>
@@ -187,9 +314,9 @@
                                 </thead>
                                 <tbody>
                                 <tr>
-                                    <td th:text="${user.id}"></td>
-                                    <td th:text="${user.username}"></td>
-                                    <td th:text="${user.roles}"></td>
+                                    <td id="user_id" th:text="${user != null} ? user.id : 'No ID'">No ID</td>
+                                    <td id="user_username" th:text="${user != null} ? user.username : 'Guest'">Guest</td>
+                                    <td id="user_roles" th:text="${user != null} ? user.roles : 'No roles'">No roles</td>
                                 </tr>
                                 </tbody>
                             </table>
@@ -199,22 +326,6 @@
             </div>
         </div>
     </div>
-
-    <script>
-        function showContent(contentId) {
-            document.querySelectorAll('.content').forEach(function (element) {
-                element.style.display = 'none';
-            });
-
-            document.getElementById(contentId + '-content').style.display = 'block';
-
-            document.querySelectorAll('.nav-link').forEach(function (link) {
-                link.classList.remove('active');
-            });
-
-            document.getElementById(contentId + '-link').classList.add('active');
-        }
-    </script>
 </div>
 
 <script>
@@ -477,15 +588,15 @@
         document.getElementById('usernameToDelete').textContent = username;
     }
 </script>
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        var showEditModal = [[${showEditModal}]];
-        if (showEditModal) {
-            var editModal = new bootstrap.Modal(document.getElementById('editModal'));
-            editModal.show();
-        }
-    });
-</script>
+<!--<script>-->
+<!--    document.addEventListener("DOMContentLoaded", function () {-->
+<!--        var showEditModal = [[${showEditModal}]];-->
+<!--        if (showEditModal) {-->
+<!--            var editModal = new bootstrap.Modal(document.getElementById('editModal'));-->
+<!--            editModal.show();-->
+<!--        }-->
+<!--    });-->
+<!--</script>-->
 
 </body>
 </html>
