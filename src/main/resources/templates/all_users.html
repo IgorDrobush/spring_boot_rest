@@ -53,7 +53,6 @@
     <script>
         document.addEventListener("DOMContentLoaded", () => {
 
-            // Отправка запроса к /admin/rest/get_all_data
             fetch('/admin/rest/get_all_data', {
                 method: 'GET',
                 headers: {
@@ -69,31 +68,30 @@
                 })
                 .then(data => {
                     console.log('Пришли данные:', data);
-                    // Проверяем, что данные получены
                     if (data && data.user.username && data.user.roles
                         && data.rolesToString && data.users && data.roles) {
-                        // Обновляем имя пользователя
+
                         document.getElementById('username').textContent = data.user.username;
                         document.getElementById('roles').textContent = data.user.roles.map(role => role.authority).join(', ');
                         document.getElementById('user_id').textContent = data.user.id;
                         document.getElementById('user_username').textContent = data.user.username;
                         document.getElementById('user_roles').textContent = data.user.roles.map(role => role.authority).join(', ');
-                        // Показываем форму выхода
+
                         document.getElementById('logoutForm').style.display = 'block';
                         updateUsersTable(data.users)
                         renderRoles(data.roles)
 
-                        const rolesToString = data.rolesToString;  // Обновление списка ролей
+                        const rolesToString = data.rolesToString;
                         const adminLink = document.getElementById('admin-link');
                         if (rolesToString.includes('ROLE_ADMIN')) {
                             adminLink.textContent = 'Admin';
-                            adminLink.classList.add('active'); // Добавляем класс active
+                            adminLink.classList.add('active');
                             adminLink.setAttribute('onclick', "showContent('admin')");
                             showContent('admin');
                         } else {
-                            adminLink.textContent = ''; // Очищаем текст
-                            adminLink.classList.remove('active'); // Убираем класс active
-                            adminLink.removeAttribute('onclick'); // Убираем событие
+                            adminLink.textContent = '';
+                            adminLink.classList.remove('active');
+                            adminLink.removeAttribute('onclick');
                         }
 
                         const userLink = document.getElementById('user-link');
@@ -140,12 +138,11 @@
         <script>
             function showContent(contentId) {
                 console.log('Запустилась функция showContent(contentId)');
-                // Скрыть все содержимое
+
                 document.querySelectorAll('.content').forEach(function (element) {
                     element.style.display = 'none';
                 });
 
-                // Отобразить только нужное содержимое
                 let contentElement = document.getElementById(contentId + '-content');
                 console.log('contentElement:', contentElement);
                 if (contentElement) {
@@ -154,12 +151,10 @@
                     console.error(`Element with ID ${contentId}-content does not exist.`);
                 }
 
-                // Удалить активный класс для всех ссылок
                 document.querySelectorAll('.nav-link').forEach(function (link) {
                     link.classList.remove('active');
                 });
 
-                // Добавить активный класс только для выбранной вкладки
                 let activeLink = document.getElementById(contentId + '-link');
                 if (activeLink) {
                     activeLink.classList.add('active');
@@ -242,18 +237,7 @@
                                         <div class="mb-3">
                                             <label class="form-label">Roles</label>
                                             <div id="roles-container"></div>
-<!--                                            <div th:each="role : ${roles}">-->
-<!--                                                <div class="form-check">-->
-<!--                                                    &lt;!&ndash; Значение чекбокса должно быть authority из объекта role &ndash;&gt;-->
-<!--                                                    <input class="form-check-input" type="checkbox"-->
-<!--                                                           th:id="'newRole_' + ${role.id}"-->
-<!--                                                           th:value="${role.authority}" />-->
-<!--                                                    <label class="form-check-label"-->
-<!--                                                           th:for="'newRole_' + ${role.id}"-->
-<!--                                                           th:text="${role.authority}"></label>-->
-<!--                                                </div>-->
-<!--                                            </div>-->
-<!--                                            <div id="rolesError" style="color: red;"></div>-->
+                                            <div id="savingError" style="color: red;"></div>
                                         </div>
                                         <div class="button-add">
                                             <button type="button" class="btn btn-success" onclick="saveUser(event)">Add new user</button>
@@ -262,7 +246,7 @@
                                         <script>
                                             function renderRoles(roles) {
                                                 const container = document.getElementById('roles-container');
-                                                container.innerHTML = ''; // Очистить контейнер перед добавлением новых элементов
+                                                container.innerHTML = '';
                                                 roles.forEach(role => {
                                                     const div = document.createElement('div');
                                                     div.className = 'form-check';
@@ -357,14 +341,22 @@
                 body: JSON.stringify(user)
             });
 
+            console.log('Ответ от сервера: ', response);
             if (response.ok) {
-                console.log('Пользователь успешно создан!');
+                console.log('Успешный ответ от сервера!');
                 const updatedUsers = await response.json();
-                updateUsersTable(updatedUsers);
-                document.getElementById('users-tab').click();
+                if (updatedUsers.users != null) {
+                    console.log('Пользователь успешно создан!');
+                    updateUsersTable(updatedUsers.users);
+                    document.getElementById('users-tab').click();
+                } else {
+                    console.log('Ошибка создания пользователя: ', updatedUsers.error);
+                    document.getElementById('savingError').textContent = updatedUsers.error;
+                }
             } else {
+                console.log('Ошибка ответа от сервера!');
                 const errorText = await response.text();
-                console.error('Error:', errorText);
+                console.error('Error:', errorText.error);
             }
         } catch (error) {
             console.error('Ошибка при добавлении пользователя:', error);
@@ -399,6 +391,7 @@
                         </div>
                         <div id="rolesError" style="color: red;"></div>
                     </div>
+                    <div id="editingError" style="color: red;"></div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                         <button type="button" class="btn btn-primary" id="editButton">Edit</button>
@@ -475,9 +468,14 @@
             if (response.ok) {
                 console.log('User updated successfully!');
                 const updatedUsers = await response.json();
-                updateUsersTable(updatedUsers);
-                const editModal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
-                editModal.hide();
+                if (updatedUsers.users != null) {
+                    updateUsersTable(updatedUsers.users);
+                    const editModal = bootstrap.Modal.getInstance(document.getElementById('editModal'));
+                    editModal.hide();
+                } else {
+                    console.log('Ошибка редактирования пользователя: ', updatedUsers.error);
+                    document.getElementById('editingError').textContent = updatedUsers.error;
+                }
             } else {
                 const errorText = await response.text();
                 console.error('Error:', errorText);
@@ -588,15 +586,5 @@
         document.getElementById('usernameToDelete').textContent = username;
     }
 </script>
-<!--<script>-->
-<!--    document.addEventListener("DOMContentLoaded", function () {-->
-<!--        var showEditModal = [[${showEditModal}]];-->
-<!--        if (showEditModal) {-->
-<!--            var editModal = new bootstrap.Modal(document.getElementById('editModal'));-->
-<!--            editModal.show();-->
-<!--        }-->
-<!--    });-->
-<!--</script>-->
-
 </body>
 </html>

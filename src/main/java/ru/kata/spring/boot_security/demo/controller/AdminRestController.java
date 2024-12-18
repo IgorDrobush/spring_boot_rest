@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.*;
 import ru.kata.spring.boot_security.demo.model.DataClass;
 import ru.kata.spring.boot_security.demo.model.Role;
 import ru.kata.spring.boot_security.demo.model.User;
+import ru.kata.spring.boot_security.demo.model.UsersResponse;
+import ru.kata.spring.boot_security.demo.service.HandleRequestSaveAndUpdateUser;
 import ru.kata.spring.boot_security.demo.service.RoleService;
 import ru.kata.spring.boot_security.demo.service.UserService;
 
@@ -20,12 +22,17 @@ public class AdminRestController {
 
     private final UserService userService;
     private final RoleService roleService;
-    private List<User> users;
+    private final HandleRequestSaveAndUpdateUser handleRequestSaveAndUpdateUser;
 
     @Autowired
-    public AdminRestController(UserService userService, RoleService roleService) {
+    public AdminRestController(
+            UserService userService,
+            RoleService roleService,
+            HandleRequestSaveAndUpdateUser handleRequestSaveAndUpdateUser
+    ) {
         this.userService = userService;
         this.roleService = roleService;
+        this.handleRequestSaveAndUpdateUser = handleRequestSaveAndUpdateUser;
     }
 
     @GetMapping(value = "/get_all_data")
@@ -38,16 +45,12 @@ public class AdminRestController {
         List<User> users = userService.getAllUsers();
         Set<Role> roles = roleService.getAllRoles();
         DataClass dataClass = new DataClass(user, rolesToString, users, roles);
-        System.out.println("Выполнен запрос данных: " + dataClass);
         return ResponseEntity.ok(dataClass);
     }
 
     @PostMapping(value = "/save")
-    public ResponseEntity<List<User>> saveUser(@RequestBody User user) {
-        System.out.println("Сохраняется юзер: " + user);
-        userService.saveUser(user);
-        users = userService.getAllUsers();
-        return ResponseEntity.ok(users);
+    public ResponseEntity<UsersResponse> saveUser(@RequestBody User user) {
+        return ResponseEntity.ok(handleRequestSaveAndUpdateUser.handleRequest(user, "save"));
     }
 
     @GetMapping(value = "/delete")
@@ -55,14 +58,12 @@ public class AdminRestController {
             @RequestParam(value = "id", required = false) Long id
     ) {
         userService.deleteUserById(id);
-        users = userService.getAllUsers();
+        List<User> users = userService.getAllUsers();
         return ResponseEntity.ok(users);
     }
 
     @PostMapping(value = "/update")
-    public ResponseEntity<List<User>> updateUser(@RequestBody User user) {
-        userService.updateUser(user);
-        users = userService.getAllUsers();
-        return ResponseEntity.ok(users);
+    public ResponseEntity<UsersResponse> updateUser(@RequestBody User user) {
+        return ResponseEntity.ok(handleRequestSaveAndUpdateUser.handleRequest(user, "update"));
     }
 }
