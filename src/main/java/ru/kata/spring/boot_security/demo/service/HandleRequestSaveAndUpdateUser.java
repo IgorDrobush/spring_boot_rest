@@ -30,9 +30,9 @@ public class HandleRequestSaveAndUpdateUser {
             return new UsersResponse(users, null);
         } catch (ConstraintViolationException e) {
             StringBuilder stringBuilder = new StringBuilder();
-            e.getConstraintViolations().forEach(constraintViolation -> {
-                stringBuilder.append(constraintViolation.getMessage());
-            });
+            e.getConstraintViolations().forEach(
+                    constraintViolation -> stringBuilder.append(constraintViolation.getMessage())
+            );
             String error = stringBuilder.toString();
             return new UsersResponse(null, error);
         } catch (Exception e) {
